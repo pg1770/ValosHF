@@ -60,6 +60,7 @@
 #include "ramvector.h"      /* redirects interrupt vectors into RAM */
 #include "slotcar.h"        /* slot car HW related macros and routines */
 #include "ff.h"             /* access to FAT file system on SD card */
+#include "tibi_geri.h" 
 
 /******************************************************************************
  * Constants and macros
@@ -88,10 +89,6 @@ unsigned short trackVoltage; /* 12-bit unsigned sample */
 /* global time */
 volatile unsigned long timeCounter; /* global free-running 1/2ms counter */
 
-/*Tibi voltam*/
-volatile char tibi_time = 0;
-
-#ifdef SD_CARD_EXISTS
 
 /* logBuffer */
 struct
@@ -109,7 +106,7 @@ byte idxWrite = 0; /* logBuffer write index */
 /* SD card */
 FATFS fileSystem; /* FAT driver File System Object */
 FIL file; /* log file File Object */
-#endif
+FIL logFile; //külön kellene rá ifdef ha ráérünk
 
 /******************************************************************************
  * Functions
@@ -276,14 +273,6 @@ interrupt VectorNumber_Vrtc void Vrtc_isr(void)
 		SET_LED_BR_OFF;
 	}
 
-	/*Tibi voltam*/
-	/*tibi_time ++;
-	
-	if(tibi_time == 0)
-	{
-		motorVoltage += 100;
-	}
-	*/
 	/* Clear the interrupt flag */
 	RTCSC_RTIF = 1;
 }
@@ -386,6 +375,7 @@ void main(void) {
 	word val, i = 0;
 	byte idx;
 	char fileName[] = "00000000.CSV";
+	char logFileName[] = "statelog.CSV";
 	f_mount(0, &fileSystem);
 	do
 	{
@@ -400,6 +390,8 @@ void main(void) {
 	}while(FR_EXIST == f_open(&file, fileName, FA_CREATE_NEW | FA_WRITE));
 	/* write header line */
 	f_printf(&file, "%s\n", "timeCounter;accXFilt;accYFilt;accZ;trackVoltage;motorCurrent");
+	
+	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
 #endif
 
 	/* break lights off */
@@ -407,7 +399,7 @@ void main(void) {
 	SET_LED_BR_OFF;
 
 	/* enable motor */
-	motorVoltage = 2500;
+	motorVoltage = 2000;
 	MOTOR_ENABLE;
 	//while(GET_MOTOR_FAULT_STATUS != MOTOR_STATUS_OK);
 
@@ -420,7 +412,7 @@ void main(void) {
 			MOTOR_DISABLE;
 		}
 
-//		motorVoltage = (timeCounter%6000)/2;
+		motorVoltage = (timeCounter%6000)/2;
 //		if(0==(timeCounter%4000))
 //		{
 //			motorVoltage = 0;
@@ -430,10 +422,11 @@ void main(void) {
 //			motorVoltage = 2000;
 //		}
 
-#ifdef SD_CARD_EXISTS
+//#ifdef SD_CARD_EXISTS
 		/* logBuffer not empty? */
 		if(idxRead != idxWrite)
 		{
+			//feel_track_and_time_buffers(idxRead);
 			/* Format log data from buffer to CSV text */
 			f_printf(&file,"%d;%d;%d;%d;%d;%d\n", logBuffer[idxRead].timeCounter,
 					logBuffer[idxRead].accXFilt,
@@ -451,19 +444,65 @@ void main(void) {
 			/* Put data physically to the SD card */
 			f_sync(&file);
 		}
-#else
-		volatile unsigned long i;
-		for (i = 0; i < 1000; i++)
-		;
-#endif
+//#else
+//		volatile unsigned long i;
+//		for (i = 0; i < 1000; i++)
+//		;
+//#endif
 	}
-#ifdef SD_CARD_EXISTS
+//#ifdef SD_CARD_EXISTS
 	/* never gets here to close the file and dismount SD card - don't care, because: */
 	f_close(&file); /* calls f_sync and then clears file object */
 	f_mount(0, NULL); /* clears fat system object, hardware not touched */
-#endif
+//#endif
 }
 /*****************************************************************************/
+
+void feel_track_and_time_buffers(int idxRead)
+{
+	//ha van uj allapotunk
+	if(logBuffer[idxRead].accXFilt > THRESHOLD_UP &&
+			track_buffer[buffer_pos] != CORNER_DOWN)
+	{
+			buffer_pos++;
+			if (buffer_pos >= BUFFER_LENGTH)
+			{
+				f_printf(&file, "Buffer overflow" );
+				buffer_pos = 0;
+			}
+			track_buffer[buffer_pos] = CORNER_DOWN;
+			time_buffer[buffer_pos] = RunTime;
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_DOWN, RunTime );
+	}
+	
+	else if(logBuffer[idxRead].accXFilt < THRESHOLD_DOWN && 
+			track_buffer[buffer_pos] != CORNER_UP)
+	{
+			buffer_pos++;
+			if (buffer_pos >= BUFFER_LENGTH)
+			{
+				f_printf(&file, "Buffer overflow" );
+				buffer_pos = 0;
+			}
+			track_buffer[buffer_pos] = CORNER_UP;
+			time_buffer[buffer_pos] = RunTime;
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_UP, RunTime );
+
+	}
+	else 	if (track_buffer[buffer_pos] != STRAIGHT_LINE)
+	{
+			buffer_pos++;
+			if (buffer_pos >= BUFFER_LENGTH)
+			{
+				f_printf(&file, "Buffer overflow" );
+				buffer_pos = 0;
+			}
+			track_buffer[buffer_pos] = STRAIGHT_LINE;
+			time_buffer[buffer_pos] = RunTime;
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, STRAIGHT_LINE, RunTime );
+	}}
+
+
 
 /*****************************************************************************/
 /* Freescale  is  not  obligated  to  provide  any  support, upgrades or new */
