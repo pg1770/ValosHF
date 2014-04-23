@@ -412,7 +412,7 @@ void main(void) {
 			MOTOR_DISABLE;
 		}
 
-		motorVoltage = (timeCounter%6000)/2;
+//		motorVoltage = (timeCounter%6000)/2;
 //		if(0==(timeCounter%4000))
 //		{
 //			motorVoltage = 0;
@@ -457,6 +457,56 @@ void main(void) {
 //#endif
 }
 /*****************************************************************************/
+
+/*
+ * Egy pályaperiódus hosszát adja vissza. Ha még nem tudtuk megállapítani, akkor -1 et.
+ * Periódus hossza alatt a egy kör által tartalmazott pályaelemeket értjük (egyenes, emelkedõ kanyar,
+ * lejtõ kanyar)
+ * Akkor hívjuk meg elõször, ha már a pálya elértük a vélhetõ periodicitás maximuma kétszeresénél
+ * fellépõ pozíciót is. (kétszeres azért jó, mert akkor két kört biztosan megtettünk,
+ * így könnyebben és biztosabban találhatunk periódust)
+ * 
+ * A track bufferben keres periodicitást.
+ * Két paramétere az elsõ kör vélhetõ végének a minimuma és maximuma, mint a pozícióbufferben
+ * elfoglalt állapot indexe.
+ * 
+ * pl: 5 db állapotot vettünk fel amíg el nem értük a minimum vélhetõ pályavéget (amit megadtunk 
+ * define-nal) és 7 db állapotot, amíg el nem értük a maximumot, akkor a paraméterek
+ * (mivel zero-based a tömbök indexelése) 4 és 6
+ */
+
+int find_period_lenght(int index_min, int index_max)
+{
+	int match;
+	int temp_dismatch;
+	int i,j,k;
+	
+	for(i = index_min; i < (idxRead - (index_min)); i++)
+	{
+		for(j = 0; j <= index_min; j++)
+		{
+			match = i - 1;
+			if(track_buffer[j] != track_buffer[j+i])
+			{
+				match = -1;
+				break;
+			}
+		}
+		
+		if(match != -1)
+			break;
+	}
+	
+	return match;
+}
+
+
+/*
+ * Ezt folyamatosan hívnánk ha van új adat, azaz a gyorsulásmérõ írt be új gyorsulási adatokat
+ * A track bufferbe írja be az új pozíciót
+ * Azaz jegyezzük, hogy eddig milyen pályaelemmel találkoztunk (egyenes, emelkedõ kanyar,
+ * lejtõ kanyar)
+ */
 
 void feel_track_and_time_buffers(int idxRead)
 {

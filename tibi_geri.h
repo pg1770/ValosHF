@@ -23,7 +23,7 @@
 
 #define START_DELAY = 200 //ms
 
-#define BUFFER_LENGTH 20
+#define BUFFER_LENGTH 128
 
 #define CORNER_UP 0
 #define CORNER_DOWN 1
