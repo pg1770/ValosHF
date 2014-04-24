@@ -475,7 +475,7 @@ void main(void) {
  * (mivel zero-based a tömbök indexelése) 4 és 6
  */
 
-int find_period_lenght(int index_min, int index_max)
+int find_period_length(int index_min, int index_max)
 {
 	int match;
 	int temp_dismatch;
@@ -550,8 +550,7 @@ void feel_track_and_time_buffers(int idxRead)
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
 			time_buffer[buffer_pos] = RunTime;
 			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, STRAIGHT_LINE, RunTime );
-	}}
-
+	}}
 
 
 /*****************************************************************************/
