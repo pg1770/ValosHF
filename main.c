@@ -379,7 +379,7 @@ int find_period_length(int index_min)
 	int match;
 	int i,j;
 	
-	for(i = index_min; i < (idxRead - (index_min)); i++)
+	for(i = index_min; i < (buffer_pos - (index_min)); i++)
 	{
 		for(j = 0; j <= index_min; j++)
 		{
@@ -409,8 +409,8 @@ int find_period_length(int index_min)
 void feel_track_and_time_buffers(int idxRead)
 {
 	//ha van uj allapotunk
-	if(logBuffer[idxRead].accXFilt > THRESHOLD_UP &&
-			track_buffer[buffer_pos] != CORNER_DOWN)
+	if(logBuffer[idxRead].accXFilt > BAL &&
+			track_buffer[buffer_pos] != CORNER_LEFT)
 	{
 			buffer_pos++;
 			if (buffer_pos >= BUFFER_LENGTH)
@@ -418,13 +418,13 @@ void feel_track_and_time_buffers(int idxRead)
 				f_printf(&file, "Buffer overflow" );
 				buffer_pos = 0;
 			}
-			track_buffer[buffer_pos] = CORNER_DOWN;
+			track_buffer[buffer_pos] = CORNER_LEFT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_DOWN, timeCounter );
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_LEFT, timeCounter );
 	}
 	
-	else if(logBuffer[idxRead].accXFilt < THRESHOLD_DOWN && 
-			track_buffer[buffer_pos] != CORNER_UP)
+	else if(logBuffer[idxRead].accXFilt < JOBB && 
+			track_buffer[buffer_pos] != CORNER_RIGHT)
 	{
 			buffer_pos++;
 			if (buffer_pos >= BUFFER_LENGTH)
@@ -432,9 +432,9 @@ void feel_track_and_time_buffers(int idxRead)
 				f_printf(&file, "Buffer overflow" );
 				buffer_pos = 0;
 			}
-			track_buffer[buffer_pos] = CORNER_UP;
+			track_buffer[buffer_pos] = CORNER_RIGHT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_UP, timeCounter );
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_RIGHT, timeCounter );
 
 	}
 	else 	if (track_buffer[buffer_pos] != STRAIGHT_LINE)
@@ -451,6 +451,33 @@ void feel_track_and_time_buffers(int idxRead)
 	}
 }
 
+/* 
+ * accY atlagolasa
+ * parameterek: az atlagolando adat indexe, es az atlagolas hossza
+ * visszateresi ertek a szamitott atlag
+ */
+/*
+unsigned short average_accY(int index, int num)
+{
+	int i = 0;
+	int sum = 0;
+	
+	// ha meg nincs eleg adatunk h atlagoljunk,
+	// nehogy seg fault legyen
+	if (index < num)
+	{
+		return track_buffer[index].average_accY; 
+	}
+	
+	for(i = 0, sum = 0; i < num ; i++)
+	{
+		sum += track_buffer[index - i].average_accY;
+	}
+	
+	return sum/num;
+	
+}
+*/
 
 /******************************************************************************
  * Main
@@ -525,6 +552,9 @@ void main(void) {
 		
 		if(idxRead != idxWrite)
 		{
+			//atlagolas
+			//average_accY(idxRead,4);
+			
 			
 			// Az auto allapotai
 			
@@ -545,25 +575,25 @@ void main(void) {
 				// ha a minimum palyahosszt megtettuk ES meg nem jegyeztuk fel
 				// a minimum periodushoz tartozo indexet, akkor most feljegyezzuk.
 				// Az aktualis bufferindex lesz az
+				// megalapitsuk hany palyaelemet fedeztunk fel a minimum ideig
 				if ((timeCounter >= LAP_TIME_MIN)
 						&& min_period_index == -1)
 				{
-					min_period_index = idxRead;
+					min_period_index = buffer_pos;
 				}
 				
 				// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
 				// a periodust
 				if (timeCounter >= LAP_TIME_MAX*2)
 				{
-					period_length = find_period_length(idxRead);
+					period_length = find_period_length(buffer_pos);
 				}
 				
 				// ha mar megallapitottuk a palyaperiodus hosszat
-				// akkor kepesek vagyunk kiszamolni, hanyadik kort
-				// jarjuk epp
+				// akkor kepesek vagyunk kiszamolni, hany egesy kort tettunk meg
 				if( period_length != -1)
 				{
-					round = idxRead/period_length;
+					round = buffer_pos/period_length;
 				}
 				
 				// folyamatosan logoljuk, melyik palyallapotban tartunk
@@ -580,6 +610,7 @@ void main(void) {
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
+				motorVoltage = 0;
 				break;
 			}
 			
