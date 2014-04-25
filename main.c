@@ -507,9 +507,10 @@ void main(void) {
 #ifdef SD_CARD_EXISTS
 	/* create new file on SD card for data logging */
 	word val, i = 0;
+	byte k ;
 	byte idx;
 	char fileName[] = "00000000.CSV";
-	char logFileName[] = "statelog.txt";
+	char logFileName[] = "slog0.txt";
 	f_mount(0, &fileSystem);
 	do
 	{
@@ -523,9 +524,18 @@ void main(void) {
 		while (idx && val);
 	}while(FR_EXIST == f_open(&file, fileName, FA_CREATE_NEW | FA_WRITE));
 	/* write header line */
+	k = 0;
+	do
+	{
+		idx = 4;
+		logFileName[idx] = (char)(k + '0');
+		k++;
+	}
+	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
+	
 	f_printf(&file, "%s\n", "timeCounter;accXFilt;accYFilt;accZ;trackVoltage;motorCurrent");
 	
-	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
+	
 #endif
 
 	/* break lights off */
@@ -612,7 +622,7 @@ void main(void) {
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
-				f_printf(&logFile, "RUN state \n");
+				//f_printf(&logFile, "RUN state \n");
 				motorVoltage = 0;
 				break;
 			}

@@ -11,8 +11,8 @@
 #define DEBUG_MOD
 
 
-#define BAL 34000
-#define JOBB 30000
+#define BAL 33000
+#define JOBB 31000
 
 
 #define THRESHOLD_SZUK 33000 //lefele meno kanyar
@@ -36,7 +36,8 @@
 #define LEARN 1
 #define RUN 2
 
-#define WAIT_BEFORE_LEARN 400 //ms
+//megneztuk h 1000 kell
+#define WAIT_BEFORE_LEARN 1000 //ms
 
 int track_buffer[BUFFER_LENGTH];
 unsigned long time_buffer[BUFFER_LENGTH];
