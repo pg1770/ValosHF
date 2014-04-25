@@ -11,8 +11,10 @@
 #define DEBUG_MOD
 
 
-#define BAL 33000
-#define JOBB 31000
+#define BAL 34000
+#define JOBB 30000
+
+
 #define THRESHOLD_SZUK 33000 //lefele meno kanyar
 #define THRESHOLD_BO 31000 //felele meno kanyar
 

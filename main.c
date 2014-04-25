@@ -409,13 +409,13 @@ int find_period_length(int index_min)
 void feel_track_and_time_buffers(int idxRead)
 {
 	//ha van uj allapotunk
-	if(logBuffer[idxRead].accXFilt > BAL &&
+	if((logBuffer[idxRead].accXFilt > BAL) &&
 			track_buffer[buffer_pos] != CORNER_LEFT)
 	{
 			buffer_pos++;
 			if (buffer_pos >= BUFFER_LENGTH)
 			{
-				f_printf(&file, "Buffer overflow" );
+				f_printf(&logFile, "Buffer overflow" );
 				buffer_pos = 0;
 			}
 			track_buffer[buffer_pos] = CORNER_LEFT;
@@ -423,13 +423,13 @@ void feel_track_and_time_buffers(int idxRead)
 			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_LEFT, timeCounter );
 	}
 	
-	else if(logBuffer[idxRead].accXFilt < JOBB && 
+	else if((logBuffer[idxRead].accXFilt < JOBB) && 
 			track_buffer[buffer_pos] != CORNER_RIGHT)
 	{
 			buffer_pos++;
 			if (buffer_pos >= BUFFER_LENGTH)
 			{
-				f_printf(&file, "Buffer overflow" );
+				f_printf(&logFile, "Buffer overflow" );
 				buffer_pos = 0;
 			}
 			track_buffer[buffer_pos] = CORNER_RIGHT;
@@ -437,12 +437,14 @@ void feel_track_and_time_buffers(int idxRead)
 			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_RIGHT, timeCounter );
 
 	}
-	else 	if (track_buffer[buffer_pos] != STRAIGHT_LINE)
+	else if ((track_buffer[buffer_pos] != STRAIGHT_LINE) &&
+			!(logBuffer[idxRead].accXFilt < JOBB) &&
+			!(logBuffer[idxRead].accXFilt > BAL))
 	{
 			buffer_pos++;
 			if (buffer_pos >= BUFFER_LENGTH)
 			{
-				f_printf(&file, "Buffer overflow" );
+				f_printf(&logFile, "Buffer overflow" );
 				buffer_pos = 0;
 			}
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
@@ -507,7 +509,7 @@ void main(void) {
 	word val, i = 0;
 	byte idx;
 	char fileName[] = "00000000.CSV";
-	char logFileName[] = "statelog.CSV";
+	char logFileName[] = "statelog.txt";
 	f_mount(0, &fileSystem);
 	do
 	{
@@ -542,7 +544,7 @@ void main(void) {
 		{
 			motorVoltage = 0;
 			MOTOR_DISABLE;
-			f_printf(&logFile, "Motor failed");
+			f_printf(&logFile, "Motor failed\n");
 		}
 
 
@@ -560,7 +562,7 @@ void main(void) {
 			
 			switch(car_state)
 			{
-			
+			f_printf(&logFile, "car_state %d\n", car_state);
 			// START: adott idonyit varunk, mielott elkezenenk logolni/feldolgozni
 			// adatainkat
 			case START:
@@ -601,7 +603,7 @@ void main(void) {
 				
 				// ha megallapitottuk a palyaperiodust ES mar mentunk 3 kort,
 				// akkor nekikezdunk a versenynek
-				if(round > 3 && min_period_index != -1)
+				if(round >= 3 && min_period_index != -1)
 				{
 					car_state = RUN;
 				}
@@ -610,6 +612,7 @@ void main(void) {
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
+				f_printf(&logFile, "RUN state \n");
 				motorVoltage = 0;
 				break;
 			}
@@ -635,6 +638,8 @@ void main(void) {
 		{
 			/* Put data physically to the SD card */
 			f_sync(&file);
+			f_sync(&logFile);
+			
 		}
 #else
 		volatile unsigned long i;
@@ -645,6 +650,7 @@ void main(void) {
 #ifdef SD_CARD_EXISTS
 	/* never gets here to close the file and dismount SD card - don't care, because: */
 	f_close(&file); /* calls f_sync and then clears file object */
+	f_close(&logFile);
 	f_mount(0, NULL); /* clears fat system object, hardware not touched */
 #endif
 }
