@@ -230,6 +230,7 @@ unsigned int FilterHalfBand8Lynn(unsigned int input) {
 interrupt VectorNumber_Vrtc void Vrtc_isr(void)
 {
 #ifdef SD_CARD_EXISTS
+	
 	/* Update iodisk_sd internal timers */
 	disk_timerproc();
 	/* Stare measured values into the logBuffer */
@@ -353,109 +354,7 @@ interrupt VectorNumber_Vkeyboard void Vkeyboard_isr(void)
 	KBI1SC_KBACK=1;
 }
 
-/******************************************************************************
- * Main
- ******************************************************************************/
-void main(void) {
-	/* This needs to be here when running in bootloader framework */
-	RedirectInterruptVectorsToRAM();
 
-	/******************* Device and Board Initialization ***********************/
-	SlotCarInit();
-
-	/* enable interrupts */
-	EnableInterrupts;
-
-	/* break lights on */
-	SET_LED_BL_ON;
-	SET_LED_BR_ON;
-
-#ifdef SD_CARD_EXISTS
-	/* create new file on SD card for data logging */
-	word val, i = 0;
-	byte idx;
-	char fileName[] = "00000000.CSV";
-	char logFileName[] = "statelog.CSV";
-	f_mount(0, &fileSystem);
-	do
-	{
-		idx = 8;
-		val = i++;
-		do
-		{
-			fileName[--idx] = (char)(val % 10 + '0');
-			val /= 10;
-		}
-		while (idx && val);
-	}while(FR_EXIST == f_open(&file, fileName, FA_CREATE_NEW | FA_WRITE));
-	/* write header line */
-	f_printf(&file, "%s\n", "timeCounter;accXFilt;accYFilt;accZ;trackVoltage;motorCurrent");
-	
-	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
-#endif
-
-	/* break lights off */
-	SET_LED_BL_OFF;
-	SET_LED_BR_OFF;
-
-	/* enable motor */
-	motorVoltage = 2000;
-	MOTOR_ENABLE;
-	//while(GET_MOTOR_FAULT_STATUS != MOTOR_STATUS_OK);
-
-	/*************************** Background Loop *******************************/
-	while (1) {
-		/* Check motor fault status */
-		if(GET_MOTOR_FAULT_STATUS == MOTOR_STATUS_FAULT)
-		{
-			motorVoltage = 0;
-			MOTOR_DISABLE;
-		}
-
-//		motorVoltage = (timeCounter%6000)/2;
-//		if(0==(timeCounter%4000))
-//		{
-//			motorVoltage = 0;
-//		}
-//		if(0==((timeCounter+2000)%4000))
-//		{
-//			motorVoltage = 2000;
-//		}
-
-//#ifdef SD_CARD_EXISTS
-		/* logBuffer not empty? */
-		if(idxRead != idxWrite)
-		{
-			//feel_track_and_time_buffers(idxRead);
-			/* Format log data from buffer to CSV text */
-			f_printf(&file,"%d;%d;%d;%d;%d;%d\n", logBuffer[idxRead].timeCounter,
-					logBuffer[idxRead].accXFilt,
-					logBuffer[idxRead].accYFilt,
-					logBuffer[idxRead].accZ,
-					logBuffer[idxRead].trackVoltage,
-					logBuffer[idxRead].motorCurrent);
-			if(++idxRead == LOG_BUFFER_SIZE)
-			{
-				idxRead = 0;
-			}
-		}
-		else
-		{
-			/* Put data physically to the SD card */
-			f_sync(&file);
-		}
-//#else
-//		volatile unsigned long i;
-//		for (i = 0; i < 1000; i++)
-//		;
-//#endif
-	}
-//#ifdef SD_CARD_EXISTS
-	/* never gets here to close the file and dismount SD card - don't care, because: */
-	f_close(&file); /* calls f_sync and then clears file object */
-	f_mount(0, NULL); /* clears fat system object, hardware not touched */
-//#endif
-}
 /*****************************************************************************/
 
 /*
@@ -467,7 +366,7 @@ void main(void) {
  * így könnyebben és biztosabban találhatunk periódust)
  * 
  * A track bufferben keres periodicitást.
- * Két paramétere az elsõ kör vélhetõ végének a minimuma és maximuma, mint a pozícióbufferben
+ * Paramétere az elsõ kör vélhetõ végének a minimuma, mint a pozícióbufferben
  * elfoglalt állapot indexe.
  * 
  * pl: 5 db állapotot vettünk fel amíg el nem értük a minimum vélhetõ pályavéget (amit megadtunk 
@@ -475,17 +374,16 @@ void main(void) {
  * (mivel zero-based a tömbök indexelése) 4 és 6
  */
 
-int find_period_length(int index_min, int index_max)
+int find_period_length(int index_min)
 {
 	int match;
-	int temp_dismatch;
-	int i,j,k;
+	int i,j;
 	
 	for(i = index_min; i < (idxRead - (index_min)); i++)
 	{
 		for(j = 0; j <= index_min; j++)
 		{
-			match = i - 1;
+			match = i;
 			if(track_buffer[j] != track_buffer[j+i])
 			{
 				match = -1;
@@ -521,8 +419,8 @@ void feel_track_and_time_buffers(int idxRead)
 				buffer_pos = 0;
 			}
 			track_buffer[buffer_pos] = CORNER_DOWN;
-			time_buffer[buffer_pos] = RunTime;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_DOWN, RunTime );
+			time_buffer[buffer_pos] = timeCounter;
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_DOWN, timeCounter );
 	}
 	
 	else if(logBuffer[idxRead].accXFilt < THRESHOLD_DOWN && 
@@ -535,8 +433,8 @@ void feel_track_and_time_buffers(int idxRead)
 				buffer_pos = 0;
 			}
 			track_buffer[buffer_pos] = CORNER_UP;
-			time_buffer[buffer_pos] = RunTime;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_UP, RunTime );
+			time_buffer[buffer_pos] = timeCounter;
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_UP, timeCounter );
 
 	}
 	else 	if (track_buffer[buffer_pos] != STRAIGHT_LINE)
@@ -548,9 +446,178 @@ void feel_track_and_time_buffers(int idxRead)
 				buffer_pos = 0;
 			}
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
-			time_buffer[buffer_pos] = RunTime;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, STRAIGHT_LINE, RunTime );
-	}}
+			time_buffer[buffer_pos] = timeCounter;
+			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, STRAIGHT_LINE, timeCounter );
+	}
+}
+
+
+/******************************************************************************
+ * Main
+ ******************************************************************************/
+void main(void) {
+	/* This needs to be here when running in bootloader framework */
+	RedirectInterruptVectorsToRAM();
+
+	/******************* Device and Board Initialization ***********************/
+	SlotCarInit();
+
+	/*-------------------------------------------*/
+	/* inits */
+	car_state = START;
+	min_period_index = -1;
+	period_length = -1;
+	
+	/* enable interrupts */
+	EnableInterrupts;
+
+	/* break lights on */
+	SET_LED_BL_ON;
+	SET_LED_BR_ON;
+
+#ifdef SD_CARD_EXISTS
+	/* create new file on SD card for data logging */
+	word val, i = 0;
+	byte idx;
+	char fileName[] = "00000000.CSV";
+	char logFileName[] = "statelog.CSV";
+	f_mount(0, &fileSystem);
+	do
+	{
+		idx = 8;
+		val = i++;
+		do
+		{
+			fileName[--idx] = (char)(val % 10 + '0');
+			val /= 10;
+		}
+		while (idx && val);
+	}while(FR_EXIST == f_open(&file, fileName, FA_CREATE_NEW | FA_WRITE));
+	/* write header line */
+	f_printf(&file, "%s\n", "timeCounter;accXFilt;accYFilt;accZ;trackVoltage;motorCurrent");
+	
+	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
+#endif
+
+	/* break lights off */
+	SET_LED_BL_OFF;
+	SET_LED_BR_OFF;
+	
+	/* enable motor */
+	motorVoltage = CONST_VEL;
+	
+	MOTOR_ENABLE;
+
+	/*************************** Background Loop *******************************/
+	while (1) {
+		/* Check motor fault status */
+		if(GET_MOTOR_FAULT_STATUS == MOTOR_STATUS_FAULT)
+		{
+			motorVoltage = 0;
+			MOTOR_DISABLE;
+			f_printf(&logFile, "Motor failed");
+		}
+
+
+#ifdef SD_CARD_EXISTS
+		/* logBuffer not empty? */
+		
+		
+		if(idxRead != idxWrite)
+		{
+			
+			// Az auto allapotai
+			
+			switch(car_state)
+			{
+			
+			// START: adott idonyit varunk, mielott elkezenenk logolni/feldolgozni
+			// adatainkat
+			case START:
+				round = 0;
+				if( timeCounter >=  WAIT_BEFORE_LEARN)
+					car_state = LEARN;
+				break;
+				
+			// LEARN: tanulas fazis
+			case LEARN:
+				
+				// ha a minimum palyahosszt megtettuk ES meg nem jegyeztuk fel
+				// a minimum periodushoz tartozo indexet, akkor most feljegyezzuk.
+				// Az aktualis bufferindex lesz az
+				if ((timeCounter >= LAP_TIME_MIN)
+						&& min_period_index == -1)
+				{
+					min_period_index = idxRead;
+				}
+				
+				// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
+				// a periodust
+				if (timeCounter >= LAP_TIME_MAX*2)
+				{
+					period_length = find_period_length(idxRead);
+				}
+				
+				// ha mar megallapitottuk a palyaperiodus hosszat
+				// akkor kepesek vagyunk kiszamolni, hanyadik kort
+				// jarjuk epp
+				if( period_length != -1)
+				{
+					round = idxRead/period_length;
+				}
+				
+				// folyamatosan logoljuk, melyik palyallapotban tartunk
+				feel_track_and_time_buffers(idxRead);
+				
+				// ha megallapitottuk a palyaperiodust ES mar mentunk 3 kort,
+				// akkor nekikezdunk a versenynek
+				if(round > 3 && min_period_index != -1)
+				{
+					car_state = RUN;
+				}
+				break;
+				
+			//RUN: azaz mar versenyzunk
+			case RUN:
+				feel_track_and_time_buffers(idxRead);
+				break;
+			}
+			
+			
+			/*
+			 * A mereseket mindig logoljuk, barmitol fuggetlenul
+			 */
+			
+			/* Format log data from buffer to CSV text */
+			f_printf(&file,"%d;%d;%d;%d;%d;%d\n", logBuffer[idxRead].timeCounter,
+					logBuffer[idxRead].accXFilt,
+					logBuffer[idxRead].accYFilt,
+					logBuffer[idxRead].accZ,
+					logBuffer[idxRead].trackVoltage,
+					logBuffer[idxRead].motorCurrent);
+			if(++idxRead == LOG_BUFFER_SIZE)
+			{
+				idxRead = 0;
+			}
+		}
+		else
+		{
+			/* Put data physically to the SD card */
+			f_sync(&file);
+		}
+#else
+		volatile unsigned long i;
+		for (i = 0; i < 1000; i++)
+		;
+#endif
+	}
+#ifdef SD_CARD_EXISTS
+	/* never gets here to close the file and dismount SD card - don't care, because: */
+	f_close(&file); /* calls f_sync and then clears file object */
+	f_mount(0, NULL); /* clears fat system object, hardware not touched */
+#endif
+}
+
 
 
 /*****************************************************************************/
