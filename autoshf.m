@@ -1,5 +1,8 @@
 clear all;
 
+plotverzio = 1; % 1 vagy 2
+startdelay = 1000;
+
 for n = 0 : 7;
 
   fid1 = fopen(['0000000' num2str(n) '.CSV']);
@@ -32,14 +35,40 @@ for n = 0 : 7;
     end
   end
 
-  figure(n+1);
-  subplot(2, 1, 1);
-  plot(time, accX);
-  title('Acceleration X');
-  subplot(2,1,2);
-  plot(time, valueS);
-  set(gca, 'YTick',0:2, 'YTickLabel',{'Left' 'Right' 'Straight'});
-  set(gca, 'ylim', [-0.3 2.3]);
-  title('States');
-
+  for q = 1 : length(time)
+    switch valueS(q)
+      case 0 
+        valueS(q) = 36000;
+      case 1 
+        valueS(q) = 28000;
+      case 2 
+        valueS(q) = 32000;
+      otherwise
+        
+    end
+  end
+  
+  if plotverzio == 1
+    figure(n+1);
+    plot(time, accX);
+    hold on;
+    plot(time, valueS,'r');
+    xL = get(gca,'XLim');
+    line([startdelay startdelay],xL,'Color','g');
+    legend('Acceleration X', 'States','StartDelay');
+    hold off;
+  end
+  
+  if plotverzio == 2
+    figure(n+1);
+    subplot(2, 1, 1);
+    plot(time, accX);
+    title('Acceleration X');
+    subplot(2,1,2);
+    plot(time, valueS);
+    set(gca, 'YTick',0:2, 'YTickLabel',{'Left' 'Right' 'Straight'});
+    set(gca, 'ylim', [-0.3 2.3]);
+    title('States');
+  end
+  
 end
