@@ -9,11 +9,11 @@
  * File      main.c
  *
  * Author    Milan Brejl
- * 
+ *
  * Version   1.0
- * 
+ *
  * Date      26-Nov-2009
- * 
+ *
  * Brief     Quick start with the Self-Driven Slot Car development
  *
  *******************************************************************************
@@ -21,37 +21,37 @@
  * 1.0 (26-Nov-2009) Initial version
  *******************************************************************************
  *
- * This application includes initialization code, drivers and macros enabling to 
+ * This application includes initialization code, drivers and macros enabling to
  * quickly start with the development of a Self-Driven Slot Car.
  *
  * This application is configured to run under the SlotCarBootloader framework:
  * - linker file commands the linker to use flash memory up to the bootloader
  * - interrupt vector table is redirected to RAM where a copy of the application
- *   vector table is created. 
+ *   vector table is created.
  *
  * At the current state, the application starts the car running at a constant
  * motor voltage, samples and logs all analog signals (X, Y, and Z accelerations,
  * track voltage and motor current) to a text file on the SD card.
  * X and Y accelerations are filtered by two different filter types. Take it
- * as an axample of filtering and decide on your own if these filteres are 
+ * as an axample of filtering and decide on your own if these filteres are
  * suitable for use.
  * Head lights indicate the detection of a right or a left curve. Break lights
  * indicate detection of a curve beginning, based on a simple thresholding of
- * Y-acceleration. 
- * 
+ * Y-acceleration.
+ *
  *
  * Notes:
- * 1) The MCU MCF51JM64 is configured to run at 48MHz CPU clock and 24MHz BUS 
- *    clock. 
+ * 1) The MCU MCF51JM64 is configured to run at 48MHz CPU clock and 24MHz BUS
+ *    clock.
  * 2) The motor is controlled in one direction only, using a motorVoltage
  *    unsigned int variable (range 0 to 6000) and a PWM signal of corresponding
- *    duty-cycle. 
+ *    duty-cycle.
  *    In order to control the motor in both directions (active breaking), the
  *    initialization of the TPM2 module needs to be modified for a generation of
  *    2 PWM signals. For more information refer to the MC33931 H-bridge manual.
- * 3) The ran-time data logging to a file on the SD card is handled by ChaN's 
- *    FAT System Module (http://elm-chan.org/fsw/ff/00index_e.html) 
- *    and there available example low-level MMC/SD/SDHC via SPI routines 
+ * 3) The ran-time data logging to a file on the SD card is handled by ChaN's
+ *    FAT System Module (http://elm-chan.org/fsw/ff/00index_e.html)
+ *    and there available example low-level MMC/SD/SDHC via SPI routines
  *    ported to ColdFire v1.
  *
  ******************************************************************************/
@@ -60,7 +60,7 @@
 #include "ramvector.h"      /* redirects interrupt vectors into RAM */
 #include "slotcar.h"        /* slot car HW related macros and routines */
 #include "ff.h"             /* access to FAT file system on SD card */
-#include "tibi_geri.h" 
+#include "tibi_geri.h"
 
 /******************************************************************************
  * Constants and macros
@@ -116,7 +116,7 @@ FIL logFile; //külön kellene rá ifdef ha ráérünk
 /*
  * The FilterHalfBand8Lynn function filters the input 12-bit sample
  * using an 8-level multirate half-band system based on Lynn filters.
- * Every 128th call the function returns a nonzero value which is a 
+ * Every 128th call the function returns a nonzero value which is a
  * sample of the filtered and decimated output signal.
  */
 unsigned int FilterHalfBand8Lynn(unsigned int input) {
@@ -230,7 +230,7 @@ unsigned int FilterHalfBand8Lynn(unsigned int input) {
 interrupt VectorNumber_Vrtc void Vrtc_isr(void)
 {
 #ifdef SD_CARD_EXISTS
-	
+
 	/* Update iodisk_sd internal timers */
 	disk_timerproc();
 	/* Stare measured values into the logBuffer */
@@ -299,7 +299,7 @@ interrupt VectorNumber_Vadc void Vadc_isr(void)
 {
 	unsigned int output;
 
-	/* 
+	/*
 	 * Read the new sample using READ_ADC_SAMPLE macro.
 	 * The reading also clears the interrupt flag.
 	 */
@@ -364,37 +364,39 @@ interrupt VectorNumber_Vkeyboard void Vkeyboard_isr(void)
  * Akkor hívjuk meg elõször, ha már a pálya elértük a vélhetõ periodicitás maximuma kétszeresénél
  * fellépõ pozíciót is. (kétszeres azért jó, mert akkor két kört biztosan megtettünk,
  * így könnyebben és biztosabban találhatunk periódust)
- * 
+ *
  * A track bufferben keres periodicitást.
  * Paramétere az elsõ kör vélhetõ végének a minimuma, mint a pozícióbufferben
  * elfoglalt állapot indexe.
- * 
- * pl: 5 db állapotot vettünk fel amíg el nem értük a minimum vélhetõ pályavéget (amit megadtunk 
+ *
+ * pl: 5 db állapotot vettünk fel amíg el nem értük a minimum vélhetõ pályavéget (amit megadtunk
  * define-nal) és 7 db állapotot, amíg el nem értük a maximumot, akkor a paraméterek
  * (mivel zero-based a tömbök indexelése) 4 és 6
  */
 
-int find_period_length(int index_min)
+int find_period_length(int mini, int maxi)
 {
-	int match;
+	int match = -1;
 	int i,j;
-	
-	for(i = index_min; i < (buffer_pos - (index_min)); i++)
+	int counter = 0;
+
+	for(n = maxi; n >= mini; --i)
 	{
-		for(j = 0; j <= index_min; j++)
+		for(i = buffer_pos - n; i >= n ; --i)
 		{
-			match = i;
-			if(track_buffer[j] != track_buffer[j+i])
+			for(j = 0; j <= n; ++j)
 			{
-				match = -1;
-				break;
+				if(track_buffer[j] != track_buffer[j+i])
+				{
+					++counter;
+				}
 			}
+
+			if(counter == n && i == n)
+				match = n;
 		}
-		
-		if(match != -1)
-			break;
 	}
-	
+
 	return match;
 }
 
@@ -422,8 +424,8 @@ void feel_track_and_time_buffers(int idxRead)
 			time_buffer[buffer_pos] = timeCounter;
 			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_LEFT, timeCounter );
 	}
-	
-	else if((logBuffer[idxRead].accXFilt < JOBB) && 
+
+	else if((logBuffer[idxRead].accXFilt < JOBB) &&
 			track_buffer[buffer_pos] != CORNER_RIGHT)
 	{
 			buffer_pos++;
@@ -453,7 +455,7 @@ void feel_track_and_time_buffers(int idxRead)
 	}
 }
 
-/* 
+/*
  * accY atlagolasa
  * parameterek: az atlagolando adat indexe, es az atlagolas hossza
  * visszateresi ertek a szamitott atlag
@@ -463,21 +465,21 @@ unsigned short average_accY(int index, int num)
 {
 	int i = 0;
 	int sum = 0;
-	
+
 	// ha meg nincs eleg adatunk h atlagoljunk,
 	// nehogy seg fault legyen
 	if (index < num)
 	{
-		return track_buffer[index].average_accY; 
+		return track_buffer[index].average_accY;
 	}
-	
+
 	for(i = 0, sum = 0; i < num ; i++)
 	{
 		sum += track_buffer[index - i].average_accY;
 	}
-	
+
 	return sum/num;
-	
+
 }
 */
 
@@ -496,7 +498,7 @@ void main(void) {
 	car_state = START;
 	min_period_index = -1;
 	period_length = -1;
-	
+
 	/* enable interrupts */
 	EnableInterrupts;
 
@@ -532,19 +534,19 @@ void main(void) {
 		k++;
 	}
 	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
-	
+
 	f_printf(&file, "%s\n", "timeCounter;accXFilt;accYFilt;accZ;trackVoltage;motorCurrent");
-	
-	
+
+
 #endif
 
 	/* break lights off */
 	SET_LED_BL_OFF;
 	SET_LED_BR_OFF;
-	
+
 	/* enable motor */
 	motorVoltage = CONST_VEL;
-	
+
 	MOTOR_ENABLE;
 
 	/*************************** Background Loop *******************************/
@@ -560,16 +562,16 @@ void main(void) {
 
 #ifdef SD_CARD_EXISTS
 		/* logBuffer not empty? */
-		
-		
+
+
 		if(idxRead != idxWrite)
 		{
 			//atlagolas
 			//average_accY(idxRead,4);
-			
-			
+
+
 			// Az auto allapotai
-			
+
 			switch(car_state)
 			{
 			f_printf(&logFile, "car_state %d\n", car_state);
@@ -580,10 +582,10 @@ void main(void) {
 				if( timeCounter >=  WAIT_BEFORE_LEARN)
 					car_state = LEARN;
 				break;
-				
+
 			// LEARN: tanulas fazis
 			case LEARN:
-				
+
 				// ha a minimum palyahosszt megtettuk ES meg nem jegyeztuk fel
 				// a minimum periodushoz tartozo indexet, akkor most feljegyezzuk.
 				// Az aktualis bufferindex lesz az
@@ -593,24 +595,24 @@ void main(void) {
 				{
 					min_period_index = buffer_pos;
 				}
-				
+
 				// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
 				// a periodust
 				if (timeCounter >= LAP_TIME_MAX*2)
 				{
 					period_length = find_period_length(buffer_pos);
 				}
-				
+
 				// ha mar megallapitottuk a palyaperiodus hosszat
 				// akkor kepesek vagyunk kiszamolni, hany egesy kort tettunk meg
 				if( period_length != -1)
 				{
 					round = buffer_pos/period_length;
 				}
-				
+
 				// folyamatosan logoljuk, melyik palyallapotban tartunk
 				feel_track_and_time_buffers(idxRead);
-				
+
 				// ha megallapitottuk a palyaperiodust ES mar mentunk 3 kort,
 				// akkor nekikezdunk a versenynek
 				if(round >= 3 && min_period_index != -1)
@@ -618,7 +620,7 @@ void main(void) {
 					car_state = RUN;
 				}
 				break;
-				
+
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
@@ -626,12 +628,12 @@ void main(void) {
 				motorVoltage = 0;
 				break;
 			}
-			
-			
+
+
 			/*
 			 * A mereseket mindig logoljuk, barmitol fuggetlenul
 			 */
-			
+
 			/* Format log data from buffer to CSV text */
 			f_printf(&file,"%d;%d;%d;%d;%d;%d\n", logBuffer[idxRead].timeCounter,
 					logBuffer[idxRead].accXFilt,
@@ -649,7 +651,7 @@ void main(void) {
 			/* Put data physically to the SD card */
 			f_sync(&file);
 			f_sync(&logFile);
-			
+
 		}
 #else
 		volatile unsigned long i;
