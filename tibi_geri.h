@@ -13,8 +13,6 @@
 
 #define BAL 33000
 #define JOBB 31000
-
-
 #define THRESHOLD_SZUK 33000 //lefele meno kanyar
 #define THRESHOLD_BO 31000 //felele meno kanyar
 
@@ -36,8 +34,7 @@
 #define LEARN 1
 #define RUN 2
 
-//megneztuk h 1000 kell
-#define WAIT_BEFORE_LEARN 1000 //ms
+#define WAIT_BEFORE_LEARN 400 //ms
 
 int track_buffer[BUFFER_LENGTH];
 unsigned long time_buffer[BUFFER_LENGTH];
@@ -51,6 +48,7 @@ int round;
 
 int period_length;
 int min_period_index;
+int max_period_index;
 
 
 #endif /* TIBI_GERI_H_ */

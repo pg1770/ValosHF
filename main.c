@@ -377,9 +377,14 @@ interrupt VectorNumber_Vkeyboard void Vkeyboard_isr(void)
 int find_period_length(int mini, int maxi)
 {
 	int match = -1;
-	int i,j;
+	int i,j,n;
 	int counter = 0;
-
+	
+	if(buffer_pos < maxi*2+1)
+	{
+		return match;
+	}
+	
 	for(n = maxi; n >= mini; --i)
 	{
 		for(i = buffer_pos - n; i >= n ; --i)
@@ -394,6 +399,8 @@ int find_period_length(int mini, int maxi)
 
 			if(counter == n && i == n)
 				match = n;
+			else counter = 0;
+			
 		}
 	}
 
@@ -422,7 +429,7 @@ void feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = CORNER_LEFT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_LEFT, timeCounter );
+			f_printf(&logFile, "buffer_pos %d track state %d time %d motorVoltage %d\n", buffer_pos, CORNER_LEFT, timeCounter, motorVoltage );
 	}
 
 	else if((logBuffer[idxRead].accXFilt < JOBB) &&
@@ -436,7 +443,7 @@ void feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = CORNER_RIGHT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, CORNER_RIGHT, timeCounter );
+			f_printf(&logFile, "buffer_pos %d track state %d time %d motorVoltage %d\n", buffer_pos, CORNER_RIGHT, timeCounter, motorVoltage );
 
 	}
 	else if ((track_buffer[buffer_pos] != STRAIGHT_LINE) &&
@@ -451,7 +458,7 @@ void feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d\n", buffer_pos, STRAIGHT_LINE, timeCounter );
+			f_printf(&logFile, "buffer_pos %d track state %d time %d motorVoltage %d\n", buffer_pos, STRAIGHT_LINE, timeCounter, motorVoltage );
 	}
 }
 
@@ -497,6 +504,7 @@ void main(void) {
 	/* inits */
 	car_state = START;
 	min_period_index = -1;
+	max_period_index = -1;
 	period_length = -1;
 
 	/* enable interrupts */
@@ -595,12 +603,18 @@ void main(void) {
 				{
 					min_period_index = buffer_pos;
 				}
-
+				
+				// beallitjuk a max period indexet
+				if( timeCounter >= LAP_TIME_MAX && max_period_index == -1 )
+				{
+					max_period_index = buffer_pos;
+				}
+				
 				// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
 				// a periodust
 				if (timeCounter >= LAP_TIME_MAX*2)
 				{
-					period_length = find_period_length(buffer_pos);
+					period_length = find_period_length(min_period_index, maxi);
 				}
 
 				// ha mar megallapitottuk a palyaperiodus hosszat
