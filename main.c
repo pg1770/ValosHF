@@ -457,7 +457,7 @@ int feel_track_and_time_buffers(int idxRead)
 {
 	
 	//ha van uj allapotunk
-	if((logBuffer[idxRead].accXFilt > BAL) &&
+	if((logBuffer[idxRead].accXFilt > (THRESHOLD_CENTER + THRESHOLD_CORNER)) &&
 			track_buffer[buffer_pos] != CORNER_LEFT)
 	{
 			buffer_pos++;
@@ -473,7 +473,7 @@ int feel_track_and_time_buffers(int idxRead)
 			
 	}
 
-	else if((logBuffer[idxRead].accXFilt < JOBB) &&
+	else if((logBuffer[idxRead].accXFilt < (THRESHOLD_CENTER - THRESHOLD_CORNER)) &&
 			track_buffer[buffer_pos] != CORNER_RIGHT)
 	{
 			buffer_pos++;
@@ -489,8 +489,8 @@ int feel_track_and_time_buffers(int idxRead)
 
 	}
 	else if ((track_buffer[buffer_pos] != STRAIGHT_LINE) &&
-			!(logBuffer[idxRead].accXFilt < JOBB) &&
-			!(logBuffer[idxRead].accXFilt > BAL))
+			(logBuffer[idxRead].accXFilt < (THRESHOLD_CENTER + THRESHOLD_STRAIGHT)) &&
+			(logBuffer[idxRead].accXFilt > (THRESHOLD_CENTER - THRESHOLD_STRAIGHT)))
 	{
 			buffer_pos++;
 			if (buffer_pos >= BUFFER_LENGTH)
@@ -552,6 +552,9 @@ void main(void) {
 	period_length = -1;
 	min_period_index = 1;
 
+	actual_narrow_vol = CONST_VEL;
+	actual_wide_vol = CONST_VEL;
+	actual_straight_vol = CONST_VEL;
 	/* enable interrupts */
 	EnableInterrupts;
 
@@ -683,8 +686,10 @@ void main(void) {
 					for( k = 0; k < period_length; k++)
 					{
 						period_buffer[k] = track_buffer[k+1];
+						period_times[k] = time_buffer[k+2] - time_buffer[k+1];
 					}
 					period_index = buffer_pos%period_length;
+					prev_time = timeCounter;
 					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d state %d\n", 
 							period_length, period_index,period_buffer[buffer_pos]);   
 				}
@@ -711,25 +716,136 @@ void main(void) {
 
 			//RUN: azaz mar versenyzunk
 			case RUN:
+				
+				
+				// uj allapotba leptunk
 				if(feel_track_and_time_buffers(idxRead))
 				{
+					
+					period_times[period_index] = timeCounter - prev_time;
+					prev_time = timeCounter;
+					
 					period_index++;	
 					if(period_index == period_length)
 						period_index = 0;
 					
 					f_printf(&junkLogFile, "period_index %d state %d timeCounter %d\n",
 							period_index,period_buffer[period_index],timeCounter);
+					
+					// epp beleptunk a szeles kanyarba
+					// koronkent noveljuk a sebesseget, a maxig
+					switch (period_buffer[period_index]){
+					/*
+						case(WIDE_CORNER):
+							if(actual_wide_vol < WIDE_MAX_VOL)
+							{
+								actual_wide_vol += 50;	
+							}
+							motorVoltage = actual_wide_vol;
+							break;
+					*/
+						case(STRAIGHT_LINE):
+							if(actual_straight_vol < STRAIGHT_MAX_VOL)
+							{
+								actual_straight_vol += 100;	
+							}
+							motorVoltage = actual_straight_vol;
+							f_printf(&junkLogFile, "actual_straight_vol %d\n",
+									actual_straight_vol);
+							break;
+					}
+					
 				}
+				//epp nem lepunk uj allapotba
+				else
+				{
+				
+					// a szakaszra megfelelo sebessegel megyunk be
+					switch(period_buffer[period_index])
+					{
+					case (STRAIGHT_LINE):
+
+						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T ))
+						{
+							if((period_index + 1) == period_length )
+							{
+								next_state = period_buffer[0];
+							}
+							else
+							{
+								next_state = period_buffer[period_index + 1];
+							}
+							
+							switch(next_state)
+							{
+								/*
+								case(NARROW_CORNER):
+									motorVoltage = actual_narrow_vol;
+									break;
+								*/	
+								case(CORNER_LEFT):
+								case(CORNER_RIGHT):
+									motorVoltage = actual_narrow_vol;
+									break;
+								/*
+								case(WIDE_CORNER):
+									motorVoltage = actual_wide_vol;
+									break;
+								case(STRAIGHT_LINE):
+									motorVoltage = actual_straight_vol;
+									break;
+								*/
+							}
+							
+						}	
+						break;
+						/*
+					case (NARROW_CORNER):
+					
+						break;
+					case (WIDE_CORNER):
+						
+						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T ))
+						{
+							if((period_index + 1) == period_length )
+							{
+								next_state = period_buffer[0];
+							}
+							else
+							{
+								next_state = period_buffer[period_index + 1];
+							}
+							
+							switch(next_state)
+							{
+								case(NARROW_CORNER):
+									motorVoltage = actual_narrow_vol;
+									break;
+								case(WIDE_CORNER):
+									motorVoltage = actual_wide_vol;
+									break;
+								case(STRAIGHT_LINE):
+									motorVoltage = actual_straight_vol;
+									break;
+							}
+							
+						}			
+						
+						break;
+					}
+						 */
+					}
 				
 				//motorVoltage = 0;
 				break;
+				}
+			
+				
 			}
-
-
 			/*
 			 * A mereseket mindig logoljuk, barmitol fuggetlenul
 			 */
-
+			
 			/* Format log data from buffer to CSV text */
 			f_printf(&file,"%d;%d;%d;%d;%d;%d\n", logBuffer[idxRead].timeCounter,
 					logBuffer[idxRead].accXFilt,
@@ -742,6 +858,7 @@ void main(void) {
 				idxRead = 0;
 			}
 		}
+		
 		else
 		{
 			/* Put data physically to the SD card */
