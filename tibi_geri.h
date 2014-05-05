@@ -34,7 +34,8 @@
 #define LEARN 1
 #define RUN 2
 
-#define WAIT_BEFORE_LEARN 400 //ms
+#define WAIT_BEFORE_LEARN 1000 //ms
+//#define WAIT_BEFORE_NEW_STATE 100
 
 int track_buffer[BUFFER_LENGTH];
 unsigned long time_buffer[BUFFER_LENGTH];

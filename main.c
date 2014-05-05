@@ -107,6 +107,7 @@ byte idxWrite = 0; /* logBuffer write index */
 FATFS fileSystem; /* FAT driver File System Object */
 FIL file; /* log file File Object */
 FIL logFile; //külön kellene rá ifdef ha ráérünk
+FIL junkLogFile; //külön kellene rá ifdef ha ráérünk
 
 /******************************************************************************
  * Functions
@@ -380,7 +381,7 @@ int find_period_length(int mini, int maxi)
 	int i,j,n;
 	int counter = 0;
 	
-	if(buffer_pos < maxi*2+1)
+	if(buffer_pos < (maxi*2+1))
 	{
 		return match;
 	}
@@ -391,7 +392,7 @@ int find_period_length(int mini, int maxi)
 		{
 			for(j = 0; j <= n; ++j)
 			{
-				if(track_buffer[j] != track_buffer[j+i])
+				if(track_buffer[j] == track_buffer[j+i])
 				{
 					++counter;
 				}
@@ -417,6 +418,7 @@ int find_period_length(int mini, int maxi)
 
 void feel_track_and_time_buffers(int idxRead)
 {
+	
 	//ha van uj allapotunk
 	if((logBuffer[idxRead].accXFilt > BAL) &&
 			track_buffer[buffer_pos] != CORNER_LEFT)
@@ -429,7 +431,8 @@ void feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = CORNER_LEFT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d motorVoltage %d\n", buffer_pos, CORNER_LEFT, timeCounter, motorVoltage );
+			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, CORNER_LEFT, timeCounter, motorVoltage);
+			
 	}
 
 	else if((logBuffer[idxRead].accXFilt < JOBB) &&
@@ -443,7 +446,7 @@ void feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = CORNER_RIGHT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d motorVoltage %d\n", buffer_pos, CORNER_RIGHT, timeCounter, motorVoltage );
+			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, CORNER_RIGHT, timeCounter, motorVoltage);
 
 	}
 	else if ((track_buffer[buffer_pos] != STRAIGHT_LINE) &&
@@ -458,7 +461,7 @@ void feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buffer_pos %d track state %d time %d motorVoltage %d\n", buffer_pos, STRAIGHT_LINE, timeCounter, motorVoltage );
+			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, STRAIGHT_LINE, timeCounter, motorVoltage);
 	}
 }
 
@@ -519,8 +522,9 @@ void main(void) {
 	word val, i = 0;
 	byte k ;
 	byte idx;
-	char fileName[] = "00000000.CSV";
-	char logFileName[] = "slog0.txt";
+	char fileName[] =        "00000000.CSV";
+	char logFileName[] =     "slog0.txt";
+	char junkLogLifeName[] = "junk0.txt";
 	f_mount(0, &fileSystem);
 	do
 	{
@@ -533,7 +537,7 @@ void main(void) {
 		}
 		while (idx && val);
 	}while(FR_EXIST == f_open(&file, fileName, FA_CREATE_NEW | FA_WRITE));
-	/* write header line */
+
 	k = 0;
 	do
 	{
@@ -543,6 +547,17 @@ void main(void) {
 	}
 	while(FR_EXIST == f_open(&logFile, logFileName, FA_CREATE_NEW | FA_WRITE));
 
+	
+	k = 0;
+	do
+	{
+		idx = 4;
+		junkLogLifeName[idx] = (char)(k + '0');
+		k++;
+	}
+	while(FR_EXIST == f_open(&junkLogFile, junkLogLifeName, FA_CREATE_NEW | FA_WRITE));
+	
+	/* write header line */
 	f_printf(&file, "%s\n", "timeCounter;accXFilt;accYFilt;accZ;trackVoltage;motorCurrent");
 
 
@@ -583,17 +598,18 @@ void main(void) {
 			switch(car_state)
 			{
 			f_printf(&logFile, "car_state %d\n", car_state);
+			f_printf(&junkLogFile, "Start \n");
 			// START: adott idonyit varunk, mielott elkezenenk logolni/feldolgozni
 			// adatainkat
 			case START:
 				round = 0;
-				if( timeCounter >=  WAIT_BEFORE_LEARN)
+				if(timeCounter >=  WAIT_BEFORE_LEARN)
 					car_state = LEARN;
 				break;
 
 			// LEARN: tanulas fazis
 			case LEARN:
-
+				
 				// ha a minimum palyahosszt megtettuk ES meg nem jegyeztuk fel
 				// a minimum periodushoz tartozo indexet, akkor most feljegyezzuk.
 				// Az aktualis bufferindex lesz az
@@ -602,19 +618,23 @@ void main(void) {
 						&& min_period_index == -1)
 				{
 					min_period_index = buffer_pos;
+					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN ...\n min_period_index %d \n", min_period_index);
 				}
 				
 				// beallitjuk a max period indexet
-				if( timeCounter >= LAP_TIME_MAX && max_period_index == -1 )
+				if( (timeCounter >= LAP_TIME_MAX) && (max_period_index == -1))
 				{
 					max_period_index = buffer_pos;
+					f_printf(&junkLogFile, "timecount >= LAP_TIME_MAX ...\n max_period_index %d \n", max_period_index);
 				}
 				
 				// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
 				// a periodust
 				if (timeCounter >= LAP_TIME_MAX*2)
 				{
-					period_length = find_period_length(min_period_index, maxi);
+					//f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n");
+					period_length = find_period_length(min_period_index, max_period_index);
+					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d \n", period_length);
 				}
 
 				// ha mar megallapitottuk a palyaperiodus hosszat
@@ -622,6 +642,7 @@ void main(void) {
 				if( period_length != -1)
 				{
 					round = buffer_pos/period_length;
+					f_printf(&junkLogFile, "period_length != -1 \n round %d \n", round);
 				}
 
 				// folyamatosan logoljuk, melyik palyallapotban tartunk
@@ -629,7 +650,7 @@ void main(void) {
 
 				// ha megallapitottuk a palyaperiodust ES mar mentunk 3 kort,
 				// akkor nekikezdunk a versenynek
-				if(round >= 3 && min_period_index != -1)
+				if(round >= 3 && period_length != -1)
 				{
 					car_state = RUN;
 				}
@@ -638,7 +659,7 @@ void main(void) {
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
-				//f_printf(&logFile, "RUN state \n");
+				f_printf(&logFile, "RUN state \n");
 				motorVoltage = 0;
 				break;
 			}
@@ -665,6 +686,7 @@ void main(void) {
 			/* Put data physically to the SD card */
 			f_sync(&file);
 			f_sync(&logFile);
+			f_sync(&junkLogFile);
 
 		}
 #else
@@ -677,6 +699,7 @@ void main(void) {
 	/* never gets here to close the file and dismount SD card - don't care, because: */
 	f_close(&file); /* calls f_sync and then clears file object */
 	f_close(&logFile);
+	f_close(&junkLogFile);
 	f_mount(0, NULL); /* clears fat system object, hardware not touched */
 #endif
 }
