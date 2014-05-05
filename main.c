@@ -450,9 +450,10 @@ int find_period_length(int mini, int maxi)
  * A track bufferbe írja be az új pozíciót
  * Azaz jegyezzük, hogy eddig milyen pályaelemmel találkoztunk (egyenes, emelkedõ kanyar,
  * lejtõ kanyar)
+ * visszateresi ertek, hogy lett e uj allapot
  */
 
-void feel_track_and_time_buffers(int idxRead)
+int feel_track_and_time_buffers(int idxRead)
 {
 	
 	//ha van uj allapotunk
@@ -468,6 +469,7 @@ void feel_track_and_time_buffers(int idxRead)
 			track_buffer[buffer_pos] = CORNER_LEFT;
 			time_buffer[buffer_pos] = timeCounter;
 			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, CORNER_LEFT, timeCounter, motorVoltage);
+			return 1;
 			
 	}
 
@@ -483,6 +485,7 @@ void feel_track_and_time_buffers(int idxRead)
 			track_buffer[buffer_pos] = CORNER_RIGHT;
 			time_buffer[buffer_pos] = timeCounter;
 			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, CORNER_RIGHT, timeCounter, motorVoltage);
+			return 1;
 
 	}
 	else if ((track_buffer[buffer_pos] != STRAIGHT_LINE) &&
@@ -498,7 +501,9 @@ void feel_track_and_time_buffers(int idxRead)
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
 			time_buffer[buffer_pos] = timeCounter;
 			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, STRAIGHT_LINE, timeCounter, motorVoltage);
+			return 1;
 	}
+	return 0;
 }
 
 /*
@@ -674,7 +679,13 @@ void main(void) {
 				{
 					//f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n");
 					period_length = find_period_length(min_period_index, max_period_index);
-					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d \n", period_length);
+					
+					for( k = 0; k < period_length; k++)
+					{
+						period_buffer[k] = track_buffer[k];
+					}
+					period_index = buffer_pos%period_length;
+					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d\n", period_length, period_index);
 				}
 
 				// ha mar megallapitottuk a palyaperiodus hosszat
@@ -693,14 +704,23 @@ void main(void) {
 				if(round >= 3 && period_length != -1)
 				{
 					car_state = RUN;
+					f_printf(&junkLogFile, "RUN state \n");
 				}
 				break;
 
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
-				f_printf(&junkLogFile, "RUN state \n");
-				motorVoltage = 0;
+				if(feel_track_and_time_buffers(idxRead))
+				{
+					period_index++;	
+					if(period_index == period_length)
+						period_index = 0;
+					
+					f_printf(&junkLogFile, "period_index %d \n",period_index);
+				}
+				
+				//motorVoltage = 0;
 				break;
 			}
 
