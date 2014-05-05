@@ -682,10 +682,11 @@ void main(void) {
 					
 					for( k = 0; k < period_length; k++)
 					{
-						period_buffer[k] = track_buffer[k];
+						period_buffer[k] = track_buffer[k+1];
 					}
 					period_index = buffer_pos%period_length;
-					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d\n", period_length, period_index);
+					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d state %d\n", 
+							period_length, period_index,period_buffer[buffer_pos]);   
 				}
 
 				// ha mar megallapitottuk a palyaperiodus hosszat
@@ -704,20 +705,20 @@ void main(void) {
 				if(round >= 3 && period_length != -1)
 				{
 					car_state = RUN;
-					f_printf(&junkLogFile, "RUN state \n");
+					f_printf(&junkLogFile, "RUN state timeCounter %d\n",timeCounter);
 				}
 				break;
 
 			//RUN: azaz mar versenyzunk
 			case RUN:
-				feel_track_and_time_buffers(idxRead);
 				if(feel_track_and_time_buffers(idxRead))
 				{
 					period_index++;	
 					if(period_index == period_length)
 						period_index = 0;
 					
-					f_printf(&junkLogFile, "period_index %d \n",period_index);
+					f_printf(&junkLogFile, "period_index %d state %d timeCounter %d\n",
+							period_index,period_buffer[period_index],timeCounter);
 				}
 				
 				//motorVoltage = 0;
