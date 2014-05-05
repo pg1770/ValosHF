@@ -62,6 +62,7 @@
 #include "ff.h"             /* access to FAT file system on SD card */
 #include "tibi_geri.h"
 
+
 /******************************************************************************
  * Constants and macros
  ******************************************************************************/
@@ -377,6 +378,40 @@ interrupt VectorNumber_Vkeyboard void Vkeyboard_isr(void)
 
 int find_period_length(int mini, int maxi)
 {
+  int match = -1;
+  int i, j, n;
+  int counter = 0;
+
+  if(buffer_pos < (maxi*2+1))
+  {
+	return match;
+  }
+
+  for (n = maxi; n >= mini; --n)
+  {
+    for (i = buffer_pos - n; i >= n; --i)
+    {
+      for (j = 0; j <= n; ++j)
+      {
+        if (track_buffer[j] == track_buffer[j + i])
+        {
+          ++counter;
+        }
+      }
+
+      if ((counter-1) == n && i == n)
+        match = n;
+      else counter = 0;
+
+    }
+  }
+
+  return match;
+}
+
+/*
+int find_period_length(int mini, int maxi)
+{
 	int match = -1;
 	int i,j,n;
 	int counter = 0;
@@ -385,7 +420,8 @@ int find_period_length(int mini, int maxi)
 	{
 		return match;
 	}
-	
+	f_printf(&junkLogFile, "Find period start. mini %d maxi %d buffer_pos %d \n",mini,maxi,buffer_pos);
+	f_sync(&junkLogFile);
 	for(n = maxi; n >= mini; --i)
 	{
 		for(i = buffer_pos - n; i >= n ; --i)
@@ -407,7 +443,7 @@ int find_period_length(int mini, int maxi)
 
 	return match;
 }
-
+*/
 
 /*
  * Ezt folyamatosan hívnánk ha van új adat, azaz a gyorsulásmérõ írt be új gyorsulási adatokat
@@ -509,6 +545,7 @@ void main(void) {
 	min_period_index = -1;
 	max_period_index = -1;
 	period_length = -1;
+	min_period_index = 1;
 
 	/* enable interrupts */
 	EnableInterrupts;
@@ -571,6 +608,8 @@ void main(void) {
 	motorVoltage = CONST_VEL;
 
 	MOTOR_ENABLE;
+	
+	f_printf(&junkLogFile, "Start \n");
 
 	/*************************** Background Loop *******************************/
 	while (1) {
@@ -594,11 +633,11 @@ void main(void) {
 
 
 			// Az auto allapotai
-
+			
 			switch(car_state)
 			{
 			f_printf(&logFile, "car_state %d\n", car_state);
-			f_printf(&junkLogFile, "Start \n");
+
 			// START: adott idonyit varunk, mielott elkezenenk logolni/feldolgozni
 			// adatainkat
 			case START:
@@ -614,13 +653,14 @@ void main(void) {
 				// a minimum periodushoz tartozo indexet, akkor most feljegyezzuk.
 				// Az aktualis bufferindex lesz az
 				// megalapitsuk hany palyaelemet fedeztunk fel a minimum ideig
+				/*
 				if ((timeCounter >= LAP_TIME_MIN)
 						&& min_period_index == -1)
 				{
 					min_period_index = buffer_pos;
 					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN ...\n min_period_index %d \n", min_period_index);
 				}
-				
+				*/
 				// beallitjuk a max period indexet
 				if( (timeCounter >= LAP_TIME_MAX) && (max_period_index == -1))
 				{
@@ -659,7 +699,7 @@ void main(void) {
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				feel_track_and_time_buffers(idxRead);
-				f_printf(&logFile, "RUN state \n");
+				f_printf(&junkLogFile, "RUN state \n");
 				motorVoltage = 0;
 				break;
 			}

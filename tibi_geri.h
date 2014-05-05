@@ -18,9 +18,9 @@
 
 #define DELAY 150
 
-#define CONST_VEL 2000
+#define CONST_VEL 1800
 //1/2ms os a timerunk
-#define LAP_TIME_MIN 4500*2 //ms per kör 2500 as motor fesz mellett
+#define LAP_TIME_MIN 0 //4500*2 //ms per kör 2500 as motor fesz mellett
 #define LAP_TIME_MAX 7000*2 // kb a min 1,5 szerese
 
 #define BUFFER_LENGTH 128
