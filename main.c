@@ -359,6 +359,125 @@ interrupt VectorNumber_Vkeyboard void Vkeyboard_isr(void)
 
 /*****************************************************************************/
 
+void learn()
+{
+	int k;
+	// beallitjuk a max period indexet
+	if( (timeCounter >= LAP_TIME_MAX) && (max_period_index == -1))
+	{
+		max_period_index = buffer_pos;
+		f_printf(&junkLogFile, "timecount >= LAP_TIME_MAX ...\n max_period_index %d \n", max_period_index);
+	}
+	
+	// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
+	// a periodust
+	if (timeCounter >= LAP_TIME_MAX*2)
+	{
+		//f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n");
+		period_length = find_period_length(min_period_index, max_period_index);
+		
+		for( k = 0; k < period_length; k++)
+		{
+			period_buffer[k] = track_buffer[k+1];
+			period_times[k] = time_buffer[k+2] - time_buffer[k+1];
+		}
+		period_index = buffer_pos%period_length;
+		prev_time = timeCounter;
+		f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d state %d\n", 
+			period_length, period_index,period_buffer[buffer_pos]);   
+	}
+
+	// ha mar megallapitottuk a palyaperiodus hosszat
+	// akkor kepesek vagyunk kiszamolni, hany egesy kort tettunk meg
+	if( period_length != -1)
+	{
+		round = buffer_pos/period_length;
+		f_printf(&junkLogFile, "period_length != -1 \n round %d \n", round);
+	}
+
+	// folyamatosan logoljuk, melyik palyallapotban tartunk
+	feel_track_and_time_buffers(idxRead);
+
+	// ha megallapitottuk a palyaperiodust ES mar mentunk 3 kort,
+	// akkor nekikezdunk a versenynek
+	if(round >= 3 && period_length != -1)
+	{
+		car_state = RUN;
+		f_printf(&junkLogFile, "RUN state set timeCounter %d\n",timeCounter);
+	}
+}
+
+void run()
+{
+	// uj allapotba leptunk
+	if(feel_track_and_time_buffers(idxRead))
+	{
+		period_times[period_index] = timeCounter - prev_time;
+		prev_time = timeCounter;
+		
+		period_index++;	
+		if(period_index == period_length)
+			period_index = 0;
+		
+		f_printf(&junkLogFile, "period_index %d state %d timeCounter %d period_buffer[period_index] %d\n",
+				period_index,period_buffer[period_index],timeCounter,period_buffer[period_index]);
+		
+		//a kovetkezo allpotban vagyunk
+		switch (period_buffer[period_index]){
+			case(STRAIGHT_LINE):
+				if(actual_straight_vol < STRAIGHT_MAX_VOL)
+				{
+					actual_straight_vol += 100;	
+				}
+				motorVoltage = actual_straight_vol;
+				f_printf(&junkLogFile, "actual_straight_vol %d timeCounter %d\n",
+						actual_straight_vol,timeCounter);
+				break;
+		}
+		
+	} //end of if(feel_track_and_time_buffers(idxRead))
+	//epp nem lepunk uj allapotba
+	else
+	{
+	    // a szakaszra megfelelo sebessegel megyunk be
+		switch(period_buffer[period_index])
+		{
+		case (STRAIGHT_LINE):
+
+			if( (timeCounter - prev_time) >= (prev_time + period_times[period_index] - DELTA_T ))
+			{
+				if((period_index + 1) == period_length )
+				{
+					next_state = period_buffer[0];
+				}
+				else
+				{
+					next_state = period_buffer[period_index + 1];
+				}
+				
+				f_printf(&junkLogFile, "time deltan belul next_state %d timeCounter %d\n", 
+						next_state, timeCounter);
+				switch(next_state)
+				{
+
+					case(CORNER_LEFT):
+					case(CORNER_RIGHT):
+						motorVoltage = actual_narrow_vol;
+						f_printf(&junkLogFile, "actual_narrow_vol %d timeCounter %d\n", 
+								actual_narrow_vol,timeCounter);
+						break;
+				} //end of switch(next_state)
+				
+			}	
+			break;
+		} //end of switch(period_buffer[period_index])
+		
+	} // end of else of if(feel_track_and_time_buffers(idxRead))
+}
+
+
+
+
 /*
  * Egy pályaperiódus hosszát adja vissza. Ha még nem tudtuk megállapítani, akkor -1 et.
  * Periódus hossza alatt a egy kör által tartalmazott pályaelemeket értjük (egyenes, emelkedõ kanyar,
@@ -408,42 +527,6 @@ int find_period_length(int mini, int maxi)
 
   return match;
 }
-
-/*
-int find_period_length(int mini, int maxi)
-{
-	int match = -1;
-	int i,j,n;
-	int counter = 0;
-	
-	if(buffer_pos < (maxi*2+1))
-	{
-		return match;
-	}
-	f_printf(&junkLogFile, "Find period start. mini %d maxi %d buffer_pos %d \n",mini,maxi,buffer_pos);
-	f_sync(&junkLogFile);
-	for(n = maxi; n >= mini; --i)
-	{
-		for(i = buffer_pos - n; i >= n ; --i)
-		{
-			for(j = 0; j <= n; ++j)
-			{
-				if(track_buffer[j] == track_buffer[j+i])
-				{
-					++counter;
-				}
-			}
-
-			if(counter == n && i == n)
-				match = n;
-			else counter = 0;
-			
-		}
-	}
-
-	return match;
-}
-*/
 
 /*
  * Ezt folyamatosan hívnánk ha van új adat, azaz a gyorsulásmérõ írt be új gyorsulási adatokat
@@ -657,191 +740,16 @@ void main(void) {
 			// LEARN: tanulas fazis
 			case LEARN:
 				
-				// ha a minimum palyahosszt megtettuk ES meg nem jegyeztuk fel
-				// a minimum periodushoz tartozo indexet, akkor most feljegyezzuk.
-				// Az aktualis bufferindex lesz az
-				// megalapitsuk hany palyaelemet fedeztunk fel a minimum ideig
-				/*
-				if ((timeCounter >= LAP_TIME_MIN)
-						&& min_period_index == -1)
-				{
-					min_period_index = buffer_pos;
-					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN ...\n min_period_index %d \n", min_period_index);
-				}
-				*/
-				// beallitjuk a max period indexet
-				if( (timeCounter >= LAP_TIME_MAX) && (max_period_index == -1))
-				{
-					max_period_index = buffer_pos;
-					f_printf(&junkLogFile, "timecount >= LAP_TIME_MAX ...\n max_period_index %d \n", max_period_index);
-				}
-				
-				// ha mar biztosan mentunk 2 kort, akkor megprobaljuk megkeresni
-				// a periodust
-				if (timeCounter >= LAP_TIME_MAX*2)
-				{
-					//f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n");
-					period_length = find_period_length(min_period_index, max_period_index);
-					
-					for( k = 0; k < period_length; k++)
-					{
-						period_buffer[k] = track_buffer[k+1];
-						period_times[k] = time_buffer[k+2] - time_buffer[k+1];
-					}
-					period_index = buffer_pos%period_length;
-					prev_time = timeCounter;
-					f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d state %d\n", 
-							period_length, period_index,period_buffer[buffer_pos]);   
-				}
-
-				// ha mar megallapitottuk a palyaperiodus hosszat
-				// akkor kepesek vagyunk kiszamolni, hany egesy kort tettunk meg
-				if( period_length != -1)
-				{
-					round = buffer_pos/period_length;
-					f_printf(&junkLogFile, "period_length != -1 \n round %d \n", round);
-				}
-
-				// folyamatosan logoljuk, melyik palyallapotban tartunk
-				feel_track_and_time_buffers(idxRead);
-
-				// ha megallapitottuk a palyaperiodust ES mar mentunk 3 kort,
-				// akkor nekikezdunk a versenynek
-				if(round >= 3 && period_length != -1)
-				{
-					car_state = RUN;
-					f_printf(&junkLogFile, "RUN state timeCounter %d\n",timeCounter);
-				}
+				learn();
 				break;
 
 			//RUN: azaz mar versenyzunk
 			case RUN:
 				
+				run();
+				break; //case RUN breakje
 				
-				// uj allapotba leptunk
-				if(feel_track_and_time_buffers(idxRead))
-				{
-					
-					period_times[period_index] = timeCounter - prev_time;
-					prev_time = timeCounter;
-					
-					period_index++;	
-					if(period_index == period_length)
-						period_index = 0;
-					
-					f_printf(&junkLogFile, "period_index %d state %d timeCounter %d\n",
-							period_index,period_buffer[period_index],timeCounter);
-					
-					// epp beleptunk a szeles kanyarba
-					// koronkent noveljuk a sebesseget, a maxig
-					switch (period_buffer[period_index]){
-					/*
-						case(WIDE_CORNER):
-							if(actual_wide_vol < WIDE_MAX_VOL)
-							{
-								actual_wide_vol += 50;	
-							}
-							motorVoltage = actual_wide_vol;
-							break;
-					*/
-						case(STRAIGHT_LINE):
-							if(actual_straight_vol < STRAIGHT_MAX_VOL)
-							{
-								actual_straight_vol += 100;	
-							}
-							motorVoltage = actual_straight_vol;
-							f_printf(&junkLogFile, "actual_straight_vol %d\n",
-									actual_straight_vol);
-							break;
-					}
-					
-				}
-				//epp nem lepunk uj allapotba
-				else
-				{
-				
-					// a szakaszra megfelelo sebessegel megyunk be
-					switch(period_buffer[period_index])
-					{
-					case (STRAIGHT_LINE):
-
-						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T ))
-						{
-							if((period_index + 1) == period_length )
-							{
-								next_state = period_buffer[0];
-							}
-							else
-							{
-								next_state = period_buffer[period_index + 1];
-							}
-							
-							switch(next_state)
-							{
-								/*
-								case(NARROW_CORNER):
-									motorVoltage = actual_narrow_vol;
-									break;
-								*/	
-								case(CORNER_LEFT):
-								case(CORNER_RIGHT):
-									motorVoltage = actual_narrow_vol;
-									break;
-								/*
-								case(WIDE_CORNER):
-									motorVoltage = actual_wide_vol;
-									break;
-								case(STRAIGHT_LINE):
-									motorVoltage = actual_straight_vol;
-									break;
-								*/
-							}
-							
-						}	
-						break;
-						/*
-					case (NARROW_CORNER):
-					
-						break;
-					case (WIDE_CORNER):
-						
-						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T ))
-						{
-							if((period_index + 1) == period_length )
-							{
-								next_state = period_buffer[0];
-							}
-							else
-							{
-								next_state = period_buffer[period_index + 1];
-							}
-							
-							switch(next_state)
-							{
-								case(NARROW_CORNER):
-									motorVoltage = actual_narrow_vol;
-									break;
-								case(WIDE_CORNER):
-									motorVoltage = actual_wide_vol;
-									break;
-								case(STRAIGHT_LINE):
-									motorVoltage = actual_straight_vol;
-									break;
-							}
-							
-						}			
-						
-						break;
-					}
-						 */
-					}
-				
-				//motorVoltage = 0;
-				break;
-				}
-			
-				
-			}
+			} //end of switch(car_state)
 			/*
 			 * A mereseket mindig logoljuk, barmitol fuggetlenul
 			 */
