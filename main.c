@@ -381,8 +381,7 @@ void learn()
 			period_buffer[k] = track_buffer[k+1];
 			period_times[k] = time_buffer[k+2] - time_buffer[k+1];
 		}
-		period_index = buffer_pos%period_length;
-		prev_time = timeCounter;
+		
 		f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d state %d\n", 
 			period_length, period_index,period_buffer[buffer_pos]);   
 	}
@@ -403,6 +402,10 @@ void learn()
 	if(round >= 3 && period_length != -1)
 	{
 		car_state = RUN;
+		period_index = (buffer_pos%period_length)-1;
+		prev_time = timeCounter;
+		f_printf(&junkLogFile, "RUN state \n period_length %d period_index %d state %d\n", 
+					period_length, period_index,period_buffer[buffer_pos]);  
 		f_printf(&junkLogFile, "RUN state set timeCounter %d\n",timeCounter);
 	}
 }
@@ -414,6 +417,8 @@ void run()
 	{
 		period_times[period_index] = timeCounter - prev_time;
 		prev_time = timeCounter;
+		
+		
 		
 		period_index++;	
 		if(period_index == period_length)

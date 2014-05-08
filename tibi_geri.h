@@ -10,7 +10,7 @@
 
 #define DEBUG_MOD
 
-#define DELTA_T 1000
+#define DELTA_T 700
 
 #define CONST_VEL 1800
 //1/2ms os a timerunk
