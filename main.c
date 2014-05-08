@@ -420,19 +420,31 @@ void run()
 			period_index = 0;
 		
 		f_printf(&junkLogFile, "period_index %d state %d timeCounter %d period_buffer[period_index] %d\n",
-				period_index,period_buffer[period_index],timeCounter,period_buffer[period_index]);
+				period_index,
+				period_buffer[period_index],
+				timeCounter,
+				period_buffer[period_index]);
 		
 		//a kovetkezo allpotban vagyunk
 		switch (period_buffer[period_index]){
 			case(STRAIGHT_LINE):
 				if(actual_straight_vol < STRAIGHT_MAX_VOL)
 				{
-					actual_straight_vol += 100;	
+					actual_straight_vol += 200;	
 				}
 				motorVoltage = actual_straight_vol;
-				f_printf(&junkLogFile, "actual_straight_vol %d timeCounter %d\n",
-						actual_straight_vol,timeCounter);
+				f_printf(&junkLogFile, "new state actual_straight_vol %d timeCounter %d\n",
+						actual_straight_vol,
+						timeCounter);
 				break;
+			case(CORNER_LEFT):
+			case(CORNER_RIGHT):
+				motorVoltage = actual_narrow_vol;
+				f_printf(&junkLogFile, "new state actual_narrow_vol %d timeCounter %d\n", 
+						actual_narrow_vol,
+						timeCounter);
+				break;
+				
 		}
 		
 	} //end of if(feel_track_and_time_buffers(idxRead))
@@ -456,15 +468,17 @@ void run()
 				}
 				
 				f_printf(&junkLogFile, "time deltan belul next_state %d timeCounter %d\n", 
-						next_state, timeCounter);
+						next_state, 
+						timeCounter);
 				switch(next_state)
 				{
 
 					case(CORNER_LEFT):
 					case(CORNER_RIGHT):
 						motorVoltage = actual_narrow_vol;
-						f_printf(&junkLogFile, "actual_narrow_vol %d timeCounter %d\n", 
-								actual_narrow_vol,timeCounter);
+						f_printf(&junkLogFile, "next state actual_narrow_vol %d timeCounter %d\n", 
+								actual_narrow_vol,
+								timeCounter);
 						break;
 				} //end of switch(next_state)
 				
@@ -551,7 +565,11 @@ int feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = CORNER_LEFT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, CORNER_LEFT, timeCounter, motorVoltage);
+			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", 
+					buffer_pos, 
+					CORNER_LEFT, 
+					timeCounter, 
+					motorVoltage);
 			return 1;
 			
 	}
@@ -567,7 +585,11 @@ int feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = CORNER_RIGHT;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, CORNER_RIGHT, timeCounter, motorVoltage);
+			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", 
+					buffer_pos, 
+					CORNER_RIGHT, 
+					timeCounter, 
+					motorVoltage);
 			return 1;
 
 	}
@@ -583,7 +605,11 @@ int feel_track_and_time_buffers(int idxRead)
 			}
 			track_buffer[buffer_pos] = STRAIGHT_LINE;
 			time_buffer[buffer_pos] = timeCounter;
-			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", buffer_pos, STRAIGHT_LINE, timeCounter, motorVoltage);
+			f_printf(&logFile, "buf_pos %d state %d time %d motorV %d\n", 
+					buffer_pos, 
+					STRAIGHT_LINE, 
+					timeCounter, 
+					motorVoltage);
 			return 1;
 	}
 	return 0;
@@ -635,8 +661,8 @@ void main(void) {
 	period_length = -1;
 	min_period_index = 1;
 
-	actual_narrow_vol = CONST_VEL;
-	actual_wide_vol = CONST_VEL;
+	actual_narrow_vol = NARROW_MAX_VOL;
+	actual_wide_vol = NARROW_MAX_VOL;
 	actual_straight_vol = CONST_VEL;
 	/* enable interrupts */
 	EnableInterrupts;

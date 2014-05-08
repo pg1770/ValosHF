@@ -10,7 +10,7 @@
 
 #define DEBUG_MOD
 
-#define DELTA_T 300
+#define DELTA_T 1000
 
 #define CONST_VEL 1800
 //1/2ms os a timerunk
@@ -35,7 +35,7 @@
 #define WAIT_BEFORE_LEARN 1000 //ms
 //#define WAIT_BEFORE_NEW_STATE 100
 
-#define NARROW_MAX_VOL CONST_VEL
+#define NARROW_MAX_VOL 1600
 #define WIDE_MAX_VOL 1800
 #define STRAIGHT_MAX_VOL 3000
 
