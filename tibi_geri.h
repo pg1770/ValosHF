@@ -12,7 +12,7 @@
 
 #define DELTA_T 700
 
-#define CONST_VEL 1800
+#define CONST_VEL 1600
 //1/2ms os a timerunk
 #define LAP_TIME_MIN 0 //4500*2 //ms per kör 2500 as motor fesz mellett
 #define LAP_TIME_MAX 7000*2 // kb a min 1,5 szerese
@@ -43,7 +43,7 @@
 #define THRESHOLD_CENTER 32000
 
 #define THRESHOLD_STRAIGHT 1000
-#define THRESHOLD_CORNER 3000
+#define THRESHOLD_CORNER 2000
 
 #define THRESHOLD_NARROW 1500
 #define THRESHOLD_WIDE 2000
