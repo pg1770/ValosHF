@@ -10,9 +10,11 @@
 
 #define DEBUG_MOD
 
-#define DELTA_T 700
+#define DELTA_T_BEFORE_CORNER_BREAK 1400
+#define DELTA_T_BEFORE_CORNER_ACC 700
+#define DELTA_T_BEFORE_STRAIGHT 800
 
-#define CONST_VEL 1600
+#define CONST_VEL 1800
 //1/2ms os a timerunk
 #define LAP_TIME_MIN 0 //4500*2 //ms per kör 2500 as motor fesz mellett
 #define LAP_TIME_MAX 7000*2 // kb a min 1,5 szerese
@@ -35,7 +37,8 @@
 #define WAIT_BEFORE_LEARN 1000 //ms
 //#define WAIT_BEFORE_NEW_STATE 100
 
-#define NARROW_MAX_VOL 1600
+#define CORNER_MAX_VOL 1800
+#define CORNER_BREAK 1400
 #define WIDE_MAX_VOL 1800
 #define STRAIGHT_MAX_VOL 3000
 

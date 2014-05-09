@@ -382,8 +382,9 @@ void learn()
 			period_times[k] = time_buffer[k+2] - time_buffer[k+1];
 		}
 		
-		f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d ", 
-			period_length);   
+		
+		f_printf(&junkLogFile, "timecount >= LAP_TIME_MIN*2 \n period_length %d period_index %d state %d\n", 
+			period_length, period_index,period_buffer[buffer_pos]);   
 	}
 
 	// ha mar megallapitottuk a palyaperiodus hosszat
@@ -395,7 +396,7 @@ void learn()
 	}
 
 	// folyamatosan logoljuk, melyik palyallapotban tartunk
-	if (feel_track_and_time_buffers(idxRead))
+	if(feel_track_and_time_buffers(idxRead))
 	{
 		prev_time = timeCounter;
 	}
@@ -405,9 +406,7 @@ void learn()
 	if(round >= 3 && period_length != -1)
 	{
 		car_state = RUN;
-		period_index = (buffer_pos%period_length)-1;
-		f_printf(&junkLogFile, "RUN state \n period_length %d period_index %d state %d\n", 
-					period_length, period_index,period_buffer[buffer_pos]);  
+		period_index = (buffer_pos-1)%period_length;
 		f_printf(&junkLogFile, "RUN state set timeCounter %d\n",timeCounter);
 	}
 }
@@ -418,12 +417,7 @@ void run()
 	if(feel_track_and_time_buffers(idxRead))
 	{
 		period_times[period_index] = timeCounter - prev_time;
-		prev_time = timeCounter;
-		
-		f_printf(&junkLogFile, "//////////////////////////// \nnew state prev_time %d prev period_times[period_index] %d \n",
-				prev_time,
-				period_times[period_index]);
-		
+		prev_time = (timeCounter + prev_time)/2;
 		
 		period_index++;	
 		if(period_index == period_length)
@@ -449,7 +443,7 @@ void run()
 				break;
 			case(CORNER_LEFT):
 			case(CORNER_RIGHT):
-				motorVoltage = actual_narrow_vol;
+				motorVoltage = CORNER_MAX_VOL;
 				f_printf(&junkLogFile, "new state actual_narrow_vol %d timeCounter %d\n", 
 						actual_narrow_vol,
 						timeCounter);
@@ -465,17 +459,17 @@ void run()
 		switch(period_buffer[period_index])
 		{
 		case (STRAIGHT_LINE):
-			
-			f_printf(&junkLogFile, "nincs uj state STRAIGHT_LINE timeCounter %d prev_time %d period_times[period_index] %d \n ", 
-					timeCounter, 
-					prev_time,
-					period_times[period_index]
-					);
-		
-			if( (timeCounter - prev_time) >= (prev_time + period_times[period_index] - DELTA_T ))
+
+			if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_BREAK ))
 			{
-				
-				next_state = period_buffer[(period_index + 1)%period_length];
+				if((period_index + 1) == period_length )
+				{
+					next_state = period_buffer[0];
+				}
+				else
+				{
+					next_state = period_buffer[period_index + 1];
+				}
 				
 				f_printf(&junkLogFile, "time deltan belul next_state %d timeCounter %d\n", 
 						next_state, 
@@ -485,7 +479,7 @@ void run()
 
 					case(CORNER_LEFT):
 					case(CORNER_RIGHT):
-						motorVoltage = actual_narrow_vol;
+						motorVoltage = CORNER_BREAK;
 						f_printf(&junkLogFile, "next state actual_narrow_vol %d timeCounter %d\n", 
 								actual_narrow_vol,
 								timeCounter);
@@ -493,6 +487,58 @@ void run()
 				} //end of switch(next_state)
 				
 			}	
+		
+		if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_ACC ))
+		{
+			if((period_index + 1) == period_length )
+			{
+				next_state = period_buffer[0];
+			}
+			else
+			{
+				next_state = period_buffer[period_index + 1];
+			}
+			
+			f_printf(&junkLogFile, "time deltan belul next_state %d timeCounter %d\n", 
+					next_state, 
+					timeCounter);
+			switch(next_state)
+			{
+
+				case(CORNER_LEFT):
+				case(CORNER_RIGHT):
+					motorVoltage = CORNER_MAX_VOL;
+					f_printf(&junkLogFile, "next state actual_narrow_vol %d timeCounter %d\n", 
+							actual_narrow_vol,
+							timeCounter);
+					break;
+			} //end of switch(next_state)
+			
+		}
+			break;
+		case(CORNER_LEFT):
+		case(CORNER_RIGHT):
+			
+			if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_STRAIGHT ))
+			{
+				if((period_index + 1) == period_length )
+				{
+					next_state = period_buffer[0];
+				}
+				else
+				{
+					next_state = period_buffer[period_index + 1];
+				}
+				
+				switch(next_state)
+				{
+
+					case(STRAIGHT_LINE):
+						motorVoltage = actual_straight_vol;
+						break;
+				} //end of switch(next_state)
+				
+			}
 			break;
 		} //end of switch(period_buffer[period_index])
 		
@@ -625,6 +671,34 @@ int feel_track_and_time_buffers(int idxRead)
 	return 0;
 }
 
+/*
+ * accY atlagolasa
+ * parameterek: az atlagolando adat indexe, es az atlagolas hossza
+ * visszateresi ertek a szamitott atlag
+ */
+/*
+unsigned short average_accY(int index, int num)
+{
+	int i = 0;
+	int sum = 0;
+
+	// ha meg nincs eleg adatunk h atlagoljunk,
+	// nehogy seg fault legyen
+	if (index < num)
+	{
+		return track_buffer[index].average_accY;
+	}
+
+	for(i = 0, sum = 0; i < num ; i++)
+	{
+		sum += track_buffer[index - i].average_accY;
+	}
+
+	return sum/num;
+
+}
+*/
+
 /******************************************************************************
  * Main
  ******************************************************************************/
@@ -643,8 +717,6 @@ void main(void) {
 	period_length = -1;
 	min_period_index = 1;
 
-	actual_narrow_vol = NARROW_MAX_VOL;
-	actual_wide_vol = NARROW_MAX_VOL;
 	actual_straight_vol = CONST_VEL;
 	/* enable interrupts */
 	EnableInterrupts;
