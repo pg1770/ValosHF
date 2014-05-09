@@ -456,90 +456,42 @@ void run()
 	else
 	{
 	    // a szakaszra megfelelo sebessegel megyunk be
+		next_state = period_buffer[(period_index + 1)%period_length];
+		
 		switch(period_buffer[period_index])
 		{
-		case (STRAIGHT_LINE):
-
-			if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_BREAK ))
-			{
-				if((period_index + 1) == period_length )
-				{
-					next_state = period_buffer[0];
-				}
-				else
-				{
-					next_state = period_buffer[period_index + 1];
-				}
-				
-				f_printf(&junkLogFile, "time deltan belul next_state %d timeCounter %d\n", 
-						next_state, 
-						timeCounter);
+			case (STRAIGHT_LINE):
 				switch(next_state)
 				{
-
 					case(CORNER_LEFT):
 					case(CORNER_RIGHT):
-						motorVoltage = CORNER_BREAK;
-						f_printf(&junkLogFile, "next state actual_narrow_vol %d timeCounter %d\n", 
-								actual_narrow_vol,
-								timeCounter);
-						break;
-				} //end of switch(next_state)
-				
-			}	
-		
-		if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_ACC ))
-		{
-			if((period_index + 1) == period_length )
-			{
-				next_state = period_buffer[0];
-			}
-			else
-			{
-				next_state = period_buffer[period_index + 1];
-			}
-			
-			f_printf(&junkLogFile, "time deltan belul next_state %d timeCounter %d\n", 
-					next_state, 
-					timeCounter);
-			switch(next_state)
-			{
 
-				case(CORNER_LEFT):
-				case(CORNER_RIGHT):
-					motorVoltage = CORNER_MAX_VOL;
-					f_printf(&junkLogFile, "next state actual_narrow_vol %d timeCounter %d\n", 
-							actual_narrow_vol,
-							timeCounter);
-					break;
-			} //end of switch(next_state)
-			
-		}
-			break;
-		case(CORNER_LEFT):
-		case(CORNER_RIGHT):
-			
-			if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_STRAIGHT ))
-			{
-				if((period_index + 1) == period_length )
-				{
-					next_state = period_buffer[0];
-				}
-				else
-				{
-					next_state = period_buffer[period_index + 1];
-				}
+						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_BREAK ))
+						{			
+							motorVoltage = CORNER_BREAK;
+						}
+					
+						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_ACC ))
+						{
+						motorVoltage = CORNER_MAX_VOL;
+						}
 				
+						break;	
+				}				
+				break;
+			case(CORNER_LEFT):
+			case(CORNER_RIGHT):
+			
 				switch(next_state)
 				{
-
 					case(STRAIGHT_LINE):
-						motorVoltage = actual_straight_vol;
-						break;
-				} //end of switch(next_state)
-				
-			}
-			break;
+						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_STRAIGHT ))
+						{
+							motorVoltage = actual_straight_vol;
+						}
+					break;	
+				}
+				break;
 		} //end of switch(period_buffer[period_index])
 		
 	} // end of else of if(feel_track_and_time_buffers(idxRead))
