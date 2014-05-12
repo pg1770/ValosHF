@@ -12,7 +12,7 @@
 
 #define DELTA_T_BEFORE_CORNER_BREAK 1400
 #define DELTA_T_BEFORE_CORNER_ACC 700
-#define DELTA_T_BEFORE_STRAIGHT 800
+#define DELTA_T_BEFORE_STRAIGHT 1000
 
 //1/2ms os a timerunk
 #define LAP_TIME_MIN 0 //4500*2 //ms per kör 2500 as motor fesz mellett
