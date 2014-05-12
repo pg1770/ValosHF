@@ -380,6 +380,7 @@ void learn()
 		{
 			period_buffer[k] = track_buffer[k+1];
 			period_times[k] = time_buffer[k+2] - time_buffer[k+1];
+			prev_period_times[k] = period_times[k];
 		}
 		
 		
@@ -416,8 +417,14 @@ void run()
 	// uj allapotba leptunk
 	if(feel_track_and_time_buffers(idxRead))
 	{
-		period_times[period_index] = timeCounter - prev_time;
-		prev_time = (timeCounter + prev_time)/2;
+
+		int temp;
+		temp = period_times[period_index];
+		 
+		period_times[period_index] = ((timeCounter - prev_time) + period_times[period_index] + prev_period_times[period_index])/3;
+				
+		prev_period_times[period_index] = temp;
+		prev_time = timeCounter;
 		
 		period_index++;	
 		if(period_index == period_length)
@@ -434,7 +441,9 @@ void run()
 			case(STRAIGHT_LINE):
 				if(actual_straight_vol < STRAIGHT_MAX_VOL)
 				{
-					actual_straight_vol += 200;	
+					actual_straight_vol += 100;
+					corner_break_time -= 40;
+					corner_acc_time -= 25;
 				}
 				motorVoltage = actual_straight_vol;
 				f_printf(&junkLogFile, "new state actual_straight_vol %d timeCounter %d\n",
@@ -466,12 +475,12 @@ void run()
 					case(CORNER_LEFT):
 					case(CORNER_RIGHT):
 
-						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_BREAK ))
+						if( (timeCounter - prev_time) >= (period_times[period_index] - corner_break_time ))
 						{			
 							motorVoltage = CORNER_BREAK;
 						}
 					
-						if( (timeCounter - prev_time) >= (period_times[period_index] - DELTA_T_BEFORE_CORNER_ACC ))
+						if( (timeCounter - prev_time) >= (period_times[period_index] - corner_acc_time ))
 						{
 						motorVoltage = CORNER_MAX_VOL;
 						}
@@ -730,6 +739,10 @@ void main(void) {
 	/* enable motor */
 	motorVoltage = CONST_VEL;
 
+	corner_break_time = DELTA_T_BEFORE_CORNER_BREAK;
+	corner_acc_time = DELTA_T_BEFORE_CORNER_ACC;
+	
+	
 	MOTOR_ENABLE;
 	
 	f_printf(&junkLogFile, "Start \n");

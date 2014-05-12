@@ -14,7 +14,6 @@
 #define DELTA_T_BEFORE_CORNER_ACC 700
 #define DELTA_T_BEFORE_STRAIGHT 800
 
-#define CONST_VEL 1800
 //1/2ms os a timerunk
 #define LAP_TIME_MIN 0 //4500*2 //ms per kör 2500 as motor fesz mellett
 #define LAP_TIME_MAX 7000*2 // kb a min 1,5 szerese
@@ -37,6 +36,7 @@
 #define WAIT_BEFORE_LEARN 1000 //ms
 //#define WAIT_BEFORE_NEW_STATE 100
 
+#define CONST_VEL 1800
 #define CORNER_MAX_VOL 1800
 #define CORNER_BREAK 1400
 #define WIDE_MAX_VOL 1800
@@ -48,8 +48,8 @@
 #define THRESHOLD_STRAIGHT 1000
 #define THRESHOLD_CORNER 2000
 
-#define THRESHOLD_NARROW 1500
-#define THRESHOLD_WIDE 2000
+//#define THRESHOLD_NARROW 1500
+//#define THRESHOLD_WIDE 2000
 
 int actual_narrow_vol;
 int actual_wide_vol;
@@ -67,6 +67,10 @@ int track_state;
 
 int round;
 
+int corner_break_time;
+int corner_acc_time;
+
+
 int period_length;
 int min_period_index;
 int max_period_index;
@@ -77,6 +81,7 @@ int next_state;
 int period_buffer[20];
 //a period_buffer[x-dik state je utan mennyi idovel kovetkezik a kovetkezo
 unsigned long period_times[20];
+unsigned long prev_period_times[20];
 
 int period_index;
 
